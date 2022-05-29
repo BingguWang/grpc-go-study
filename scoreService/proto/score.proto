@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+option go_package = "grpc-go-study/scoreService/proto";
+
+message Score {
+  uint32 type = 1;
+  int32 value = 2;
+
+}
+
+message AddScoreByUserIDResp{
+  uint64 userID = 1;
+}
+
+message AddScoreByUserIDReq{
+  uint64 userID = 1;
+  repeated Score scores = 2;
+}
+
+message GetScoreListByUserIDResp{
+  uint64 userID = 1;
+  repeated Score scores = 2;
+}
+
+message GetScoreListByUserIDReq{
+  uint64 userID = 1;
+  uint32 type = 2;
+}
+
+service ScoreService{
+  // @alias =/score/add/byUser
+  rpc AddScoreByUserID(AddScoreByUserIDReq) returns (AddScoreByUserIDResp);
+
+  // @alias =/score/list
+  rpc GetScoreListByUser(GetScoreListByUserIDReq) returns (GetScoreListByUserIDResp);
+}
