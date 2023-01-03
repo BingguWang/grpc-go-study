@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+option go_package = "github.com/BingguWang/grpc-go-study/server/proto";
+// github.com/BingguWang/grpc-go-study是go mod跟路径， 生成的文件会放在/scoreService/proto下
+
+package proto;
+
+message Score {
+  uint32 type = 1;
+  int32 value = 2;
+
+}
+
+message AddScoreByUserIDResp{
+  uint64 userID = 1;
+}
+
+message AddScoreByUserIDReq{
+  uint64 userID = 1;
+  repeated Score scores = 2;
+}
+
+message GetScoreListByUserIDResp{
+  uint64 userID = 1;
+  repeated Score scores = 2;
+}
+
+message GetScoreListByUserIDReq{
+  uint64 userID = 1;
+  uint32 type = 2;
+}
+
+service ScoreService{
+  // @alias =/score/add/byUser
+  rpc AddScoreByUserID(AddScoreByUserIDReq) returns (AddScoreByUserIDResp) {}  // 这种是一元的RPC通信
+
+  // @alias =/score/list
+  rpc GetStreamScoreListByUser(GetScoreListByUserIDReq) returns (stream GetScoreListByUserIDResp){} // 这种是服务端流式的RPC通信方式
+
+
+  rpc AddStreamScoreByUserID(stream AddScoreByUserIDReq) returns (AddScoreByUserIDResp){} // 这种是客户端流式的RPC通信方式
+
+  rpc AddAndGetScore(stream AddScoreByUserIDReq) returns (stream GetScoreListByUserIDResp){} // 这种是双向流的RPC通信方式
+}
