@@ -21,7 +21,49 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
+	/**
+	NewServer()
+	创建返回一个没有注册的服务，这个服务还没开始接收请求
+	方法内核心的地方就是给server结构体的service成员初始化:
+		services: make(map[string]*serviceInfo), // key 就是服务名service name
+	可以看到只是初始化而已
+	其中的serviceInfo,结构如下
+		type serviceInfo struct {
+			serviceImpl interface{} // 服务的方法的实现
+			methods     map[string]*MethodDesc
+			streams     map[string]*StreamDesc
+			mdata       interface{}
+		}
+	*/
 	s := grpc.NewServer()
+
+	/**
+	RegisterScoreServiceServer(s grpc.ServiceRegistrar, srv ScoreServiceServer)
+	注册服务
+	实际上，真正最后是调用的(s *Server) RegisterService(sd *ServiceDesc, ss interface{})
+		ServiceDesc是一个结构，它定义了RPC服务的规范
+		ss就是你手动实现了server api的实现接口
+	在这方法里会检查你是否实现了serviceDesc里的所有接口，是的就往之前server结构体的成员services里加入serviceInfo：
+		info := &serviceInfo{
+			serviceImpl: ss,
+			methods:     make(map[string]*MethodDesc),
+			streams:     make(map[string]*StreamDesc),
+			mdata:       sd.Metadata,
+		}
+		methods和streams都封装到serviceInfo后，把info加入到services成员里
+		for i := range sd.Methods {
+			d := &sd.Methods[i]
+			info.methods[d.MethodName] = d
+		}
+		for i := range sd.Streams {
+			d := &sd.Streams[i]
+			info.streams[d.StreamName] = d
+		}
+		s.services[sd.ServiceName] = info
+
+	每个service name 只对应一个serviceInfo
+	serviceDesc信息是由pb生成的，具体看ScoreService_ServiceDesc, 可以看到服务定义的具体的信息
+	*/
 	pb.RegisterScoreServiceServer(s, service.GetServer())
 	log.Printf("server listening at %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {
