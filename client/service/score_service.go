@@ -12,10 +12,13 @@ import (
 )
 
 func CallStreamAddScoreByUser(ctx context.Context, client pb.ScoreServiceClient) {
+	log.Println("client call CallStreamAddScoreByUser...")
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	// 客户端获取流
-	stream, err := client.AddStreamScoreByUserID(ctx)
+	log.Println("client call AddStreamScoreByUserID...")
+	stream, err := client.AddStreamScoreByUserID(ctx) // 其实流拦截器所做的也就是获取一个stream而已!
+	log.Println("client get clientStream...")
 	if err != nil {
 		log.Fatalf("client.AddStreamScoreByUserID failed: %v", err)
 	}
@@ -50,9 +53,12 @@ func CallStreamAddScoreByUser(ctx context.Context, client pb.ScoreServiceClient)
 }
 
 func CallStreamScoreListByUser(ctx context.Context, client pb.ScoreServiceClient, req *pb.GetScoreListByUserIDReq) {
+	log.Println("client call CallStreamScoreListByUser...")
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
+	log.Println("client call GetStreamScoreListByUser...")
 	stream, err := client.GetStreamScoreListByUser(ctx, req)
+	log.Println("client get clientStream...")
 	if err != nil {
 		log.Fatalf("client.GetStreamScoreListByUser failed: %v", err)
 	}
@@ -70,9 +76,12 @@ func CallStreamScoreListByUser(ctx context.Context, client pb.ScoreServiceClient
 }
 
 func CallStreamBidirectional(ctx context.Context, client pb.ScoreServiceClient) {
+	log.Println("client call CallStreamBidirectional...")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	log.Println("client call AddAndGetScore...")
 	stream, err := client.AddAndGetScore(ctx)
+	log.Println("client get clientStream...")
 	if err != nil {
 		log.Fatalf("client.RouteChat failed: %v", err)
 	}

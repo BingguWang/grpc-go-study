@@ -3,7 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/BingguWang/grpc-go-study/server/interceptor"
 	"github.com/BingguWang/grpc-go-study/server/service"
+	"github.com/BingguWang/grpc-go-study/server/utils"
 	"log"
 	"net"
 
@@ -35,7 +37,10 @@ func main() {
 			mdata       interface{}
 		}
 	*/
-	s := grpc.NewServer()
+	s := grpc.NewServer(
+		grpc.UnaryInterceptor(interceptor.MyUnaryServerInterceptor),   // 设置一个一元拦截器
+		grpc.StreamInterceptor(interceptor.MyStreamServerInterceptor), // 设置一个流拦截器
+	)
 
 	/**
 	RegisterScoreServiceServer(s grpc.ServiceRegistrar, srv ScoreServiceServer)
@@ -66,6 +71,10 @@ func main() {
 	*/
 	pb.RegisterScoreServiceServer(s, service.GetServer())
 	log.Printf("server listening at %v", lis.Addr())
+
+	// 输出注册完的serviceInfo看下
+	fmt.Println(utils.ToJsonString(s.GetServiceInfo()))
+
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}

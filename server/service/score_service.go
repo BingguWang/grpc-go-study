@@ -6,6 +6,7 @@ import (
 	pb "github.com/BingguWang/grpc-go-study/server/proto"
 	"github.com/BingguWang/grpc-go-study/server/utils"
 	"io"
+	"log"
 	"sync"
 	"time"
 )
@@ -24,15 +25,17 @@ func GetServer() *server {
 
 // server is used to implement helloworld.GreeterServer.
 type server struct {
-	pb.UnimplementedScoreServiceServer
+	pb.UnimplementedScoreServiceServer // 所有的实现类必须内嵌此结构，为了实现向前兼容
 }
 
 // 实现存根方法
 func (*server) AddScoreByUserID(ctx context.Context, in *pb.AddScoreByUserIDReq) (*pb.AddScoreByUserIDResp, error) {
+	log.Println("call AddScoreByUserID...")
 	return &pb.AddScoreByUserIDResp{UserID: in.UserID}, nil
 }
 
 func (*server) AddStreamScoreByUserID(stream pb.ScoreService_AddStreamScoreByUserIDServer) error {
+	log.Println("call AddStreamScoreByUserID...")
 	var count int
 	for {
 		// 从客户端发送的流内接收请求，这里grpc可以保证接收的顺序好客户端发送请求的顺序是一致的
@@ -54,6 +57,7 @@ func (*server) AddStreamScoreByUserID(stream pb.ScoreService_AddStreamScoreByUse
 
 // GetStreamScoreListByUser 服务端流式
 func (*server) GetStreamScoreListByUser(in *pb.GetScoreListByUserIDReq, stream pb.ScoreService_GetStreamScoreListByUserServer) error {
+	log.Println("call GetStreamScoreListByUser...")
 	arr := []*pb.GetScoreListByUserIDResp{
 		{
 			UserID: 1,
@@ -80,7 +84,7 @@ func (*server) GetStreamScoreListByUser(in *pb.GetScoreListByUserIDReq, stream p
 		},
 	}
 	for _, v := range arr {
-		if err := stream.Send(v); err != nil {
+		if err := stream.SendMsg(v); err != nil {
 			return err
 		}
 	}
@@ -89,6 +93,7 @@ func (*server) GetStreamScoreListByUser(in *pb.GetScoreListByUserIDReq, stream p
 
 // AddAndGetScore 双向流
 func (*server) AddAndGetScore(stream pb.ScoreService_AddAndGetScoreServer) error {
+	log.Println("call AddAndGetScore...")
 	lastest := &pb.GetScoreListByUserIDResp{}
 	for {
 		// 从客户端发送的流接收请求
