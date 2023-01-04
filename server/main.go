@@ -6,6 +6,7 @@ import (
 	"github.com/BingguWang/grpc-go-study/server/interceptor"
 	"github.com/BingguWang/grpc-go-study/server/service"
 	"github.com/BingguWang/grpc-go-study/server/utils"
+	"google.golang.org/grpc/credentials"
 	"log"
 	"net"
 
@@ -23,6 +24,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
+	// 单向TLS校验, 不论是哪个客户端，只要有了公钥和服务器名的就都可以调用到服务
+	cred, err := credentials.NewServerTLSFromFile(
+		"/home/wangbing/grpc-test/key/server.pem",
+		"/home/wangbing/grpc-test/key/server.key",
+	) // 读取公钥-私钥对，返回启动TLS的证书
+	if err != nil {
+		panic(err)
+	}
 	/**
 	NewServer()
 	创建返回一个没有注册的服务，这个服务还没开始接收请求
@@ -38,6 +47,7 @@ func main() {
 		}
 	*/
 	s := grpc.NewServer(
+		grpc.Creds(cred), // 传入上面创建的启动TLS的证书，，从而为所有传入的连接启用 TLS
 		grpc.UnaryInterceptor(interceptor.MyUnaryServerInterceptor),   // 设置一个一元拦截器
 		grpc.StreamInterceptor(interceptor.MyStreamServerInterceptor), // 设置一个流拦截器
 	)
