@@ -5,10 +5,12 @@ import (
 	"flag"
 	"fmt"
 	"github.com/BingguWang/grpc-go-study/client/interceptor"
+	mr "github.com/BingguWang/grpc-go-study/resolver"
 	"github.com/BingguWang/grpc-go-study/server/utils"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/status"
 	"log"
 	"time"
@@ -32,8 +34,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("加载证书失败 %v \n", err)
 	}
+	resolver.Register(&mr.ExampleResolverBuilder{}) // 注册自定义的命名解析器
 	conn, err := grpc.Dial(
-		*addr,
+		//*addr,
+		fmt.Sprintf("%s:///%s", mr.ExampleScheme, mr.ExampleServiceName),               // Dial to "example:///resolver.example.grpc.io"
+		grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"round_robin":{}}]}`), // 设置负载均衡策略
+
 		//grpc.WithTransportCredentials(insecure.NewCredentials()), // 没有认证
 		grpc.WithTransportCredentials(creds),
 		grpc.WithUnaryInterceptor(interceptor.MyUnaryClientInterceptor),   // 设置客户端一元拦截器
@@ -46,9 +52,9 @@ func main() {
 
 	client := pb.NewScoreServiceClient(conn)
 
-	// Contact the server and print out its response.
 	//ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second).UTC()) // 设置调用的截止时间
+	// 可以在你想要取消RPC调用的时候调用cancel方法,那样就会通知道另一方，思考问题：context的状态是如何在客户端服务端进行的同步的？
 	defer cancel()
 
 	// 一元通信
