@@ -5,9 +5,11 @@ import (
 	"flag"
 	"fmt"
 	"github.com/BingguWang/grpc-go-study/client/interceptor"
-	"github.com/BingguWang/grpc-go-study/client/service"
 	"github.com/BingguWang/grpc-go-study/server/utils"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/status"
 	"log"
 	"time"
 
@@ -45,13 +47,30 @@ func main() {
 	client := pb.NewScoreServiceClient(conn)
 
 	// Contact the server and print out its response.
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	//ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second).UTC()) // 设置调用的截止时间
 	defer cancel()
 
 	// 一元通信
-	//client.AddScoreByUserID(ctx, &pb.AddScoreByUserIDReq{
-	//	UserID: 1,
-	//})
+	if _, err := client.AddScoreByUserID(ctx, &pb.AddScoreByUserIDReq{
+		UserID: 1,
+	}); err != nil { // 如果超时了这里会收到error code = DeadlineExceeded
+		code := status.Code(err)
+		if code == codes.PermissionDenied {
+			fmt.Println(err.Error())
+			errorStatus := status.Convert(err)
+			for _, detail := range errorStatus.Details() {
+				fmt.Println("--", detail)
+				switch t := detail.(type) {
+				case *errdetails.BadRequest_FieldViolation:
+					log.Fatalf("请求错误: %v \n", t)
+				default:
+					log.Fatal(err)
+				}
+			}
+		}
+		log.Fatal(err)
+	}
 
 	// 服务端流通信
 	//service.CallStreamScoreListByUser(ctx, client, &pb.GetScoreListByUserIDReq{
@@ -62,5 +81,5 @@ func main() {
 	//service.CallStreamAddScoreByUser(ctx, client)
 
 	// 双向流通信
-	service.CallStreamBidirectional(ctx, client)
+	//service.CallStreamBidirectional(ctx, client)
 }

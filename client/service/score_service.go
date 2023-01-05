@@ -63,7 +63,7 @@ func CallStreamScoreListByUser(ctx context.Context, client pb.ScoreServiceClient
 		log.Fatalf("client.GetStreamScoreListByUser failed: %v", err)
 	}
 	for {
-		feature, err := stream.Recv() // 从服务端返回的流接收响应
+		feature, err := stream.Recv() // 从服务端返回的流接收响应，如果超时了这里会收到error code = DeadlineExceeded
 		if err == io.EOF {
 			break
 		}
