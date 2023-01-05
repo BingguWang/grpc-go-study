@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/BingguWang/grpc-go-study/client/interceptor"
-	mr "github.com/BingguWang/grpc-go-study/resolver"
+	"github.com/BingguWang/grpc-go-study/etcdv3"
 	"github.com/BingguWang/grpc-go-study/server/utils"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
@@ -21,8 +21,15 @@ import (
 
 var (
 	addr = flag.String("addr", "localhost:50051", "the address to connect to")
+	svc  = flag.String("service", "score_service", "service name")
+	reg  = flag.String("reg", "http://localhost:2379", "register etcd address") // 注册中心etcd的地址
+	//reg  = flag.String("reg", "http://127.0.0.1:2379,http://127.0.0.1:12379,http://127.0.0.1:22379", "register etcd address")
 )
 
+/**
+ 有了注册中心后，客户端只要知道服务名，不需要知道服务地址，解析服务名的工作也交给注册中心，客户端不再需要知道服务名-地址的映射关系
+客户把服务名给注册中心，由注册中心去解析出服务地址
+*/
 func main() {
 	flag.Parse()
 	// Set up a connection to the server.
@@ -34,10 +41,15 @@ func main() {
 	if err != nil {
 		log.Fatalf("加载证书失败 %v \n", err)
 	}
-	resolver.Register(&mr.ExampleResolverBuilder{}) // 注册自定义的命名解析器
+	//resolver.Register(&mr.ExampleResolverBuilder{}) // 注册自定义的grpc命名解析器
+
+	// 使用自定义的etcd命名解析器
+	r := etcdv3.NewResolver(*reg, *svc)
+	resolver.Register(r)
 	conn, err := grpc.Dial(
 		//*addr,
-		fmt.Sprintf("%s:///%s", mr.ExampleScheme, mr.ExampleServiceName),               // Dial to "example:///resolver.example.grpc.io"
+		r.Scheme()+"://authority/"+*svc, // etcd的命名解析，格式要写对 scheme名称://authority/servicename
+		//fmt.Sprintf("%s:///%s", mr.ExampleScheme, mr.ExampleServiceName),               // grpc的命名解析
 		grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"round_robin":{}}]}`), // 设置负载均衡策略
 
 		//grpc.WithTransportCredentials(insecure.NewCredentials()), // 没有认证

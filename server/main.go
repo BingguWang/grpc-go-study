@@ -3,27 +3,43 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/BingguWang/grpc-go-study/etcdv3"
 	"github.com/BingguWang/grpc-go-study/server/interceptor"
 	"github.com/BingguWang/grpc-go-study/server/service"
 	"github.com/BingguWang/grpc-go-study/server/utils"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/credentials"
 	"log"
 	"net"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	pb "github.com/BingguWang/grpc-go-study/server/proto"
 	"google.golang.org/grpc"
 )
 
 var (
-	port = flag.Int("port", 50051, "The server port")
+	serv = flag.String("service", "score_service", "service name")              //服务名
+	host = flag.String("host", "localhost", "listening host")                   // 服务的host
+	port = flag.String("port", "50051", "The server port")                      // 服务的port
+	reg  = flag.String("reg", "http://localhost:2379", "register etcd address") // 注册中心etcd的地址
 )
 
 func main() {
 	flag.Parse()
-	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", *port))
+	lis, err := net.Listen("tcp", net.JoinHostPort(*host, *port))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
+
+	// 服务端注册服务
+	err = etcdv3.Register(*reg, *serv, *host, *port, time.Second*10, 150000)
+	if err != nil {
+		panic(err)
+	}
+
 	// 单向TLS校验, 不论是哪个客户端，只要有了公钥和服务器名的就都可以调用到服务
 	cred, err := credentials.NewServerTLSFromFile(
 		"/home/wangbing/grpc-test/key/server.pem",
@@ -51,6 +67,17 @@ func main() {
 		grpc.UnaryInterceptor(interceptor.MyUnaryServerInterceptor),   // 设置一个一元拦截器
 		grpc.StreamInterceptor(interceptor.MyStreamServerInterceptor), // 设置一个流拦截器
 	)
+
+	// 服务down了之后，去删除etcd里注册的服务
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP, syscall.SIGQUIT)
+	go func() {
+		s := <-ch
+		fmt.Println("server down ... delete item in register")
+		logrus.Infof("receive signal '%v'", s)
+		etcdv3.UnRegister()
+		os.Exit(1)
+	}()
 
 	/**
 	RegisterScoreServiceServer(s grpc.ServiceRegistrar, srv ScoreServiceServer)
