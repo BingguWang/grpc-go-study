@@ -9,7 +9,6 @@ import (
 	"github.com/BingguWang/grpc-go-study/server/utils"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/status"
 	"log"
@@ -34,18 +33,13 @@ func main() {
 	flag.Parse()
 	// Set up a connection to the server.
 	fmt.Println(utils.ToJsonString(addr))
-	creds, err := credentials.NewClientTLSFromFile(
-		"/home/wangbing/grpc-test/key/server.pem",
-		"x.binggu.example.com", // 填""也可以
-	) // 读取并解析服务器端给的公钥证书，创建启用 TLS 的证书
-	if err != nil {
-		log.Fatalf("加载证书失败 %v \n", err)
-	}
-	//resolver.Register(&mr.ExampleResolverBuilder{}) // 注册自定义的grpc命名解析器
 
+	//resolver.Register(&mr.ExampleResolverBuilder{}) // 注册自定义的grpc命名解析器
 	// 使用自定义的etcd命名解析器
 	r := etcdv3.NewResolver(*reg, *svc)
 	resolver.Register(r)
+
+	opts := utils.GetOneSideTlsClientOpts()
 	conn, err := grpc.Dial(
 		//*addr,
 		r.Scheme()+"://authority/"+*svc, // etcd的命名解析，格式要写对 scheme名称://authority/servicename
@@ -53,9 +47,9 @@ func main() {
 		grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"round_robin":{}}]}`), // 设置负载均衡策略
 
 		//grpc.WithTransportCredentials(insecure.NewCredentials()), // 没有认证
-		grpc.WithTransportCredentials(creds),
 		grpc.WithUnaryInterceptor(interceptor.MyUnaryClientInterceptor),   // 设置客户端一元拦截器
 		grpc.WithStreamInterceptor(interceptor.MyStreamClientInterceptor), // 设置客户端流拦截器
+		opts[0],
 	)
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
