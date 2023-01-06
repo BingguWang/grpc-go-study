@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             v3.21.12
-// source: server/proto/score.proto
+// source: score.proto
 
 package proto
 
@@ -145,7 +145,7 @@ func (x *scoreServiceAddAndGetScoreClient) Recv() (*GetScoreListByUserIDResp, er
 }
 
 // ScoreServiceServer is the server API for ScoreService service.
-// All implementations must embed UnimplementedScoreServiceServer
+// All implementations should embed UnimplementedScoreServiceServer
 // for forward compatibility
 type ScoreServiceServer interface {
 	// @alias =/score/add/byUser
@@ -154,10 +154,9 @@ type ScoreServiceServer interface {
 	GetStreamScoreListByUser(*GetScoreListByUserIDReq, ScoreService_GetStreamScoreListByUserServer) error
 	AddStreamScoreByUserID(ScoreService_AddStreamScoreByUserIDServer) error
 	AddAndGetScore(ScoreService_AddAndGetScoreServer) error
-	mustEmbedUnimplementedScoreServiceServer()
 }
 
-// UnimplementedScoreServiceServer must be embedded to have forward compatible implementations.
+// UnimplementedScoreServiceServer should be embedded to have forward compatible implementations.
 type UnimplementedScoreServiceServer struct {
 }
 
@@ -173,7 +172,6 @@ func (UnimplementedScoreServiceServer) AddStreamScoreByUserID(ScoreService_AddSt
 func (UnimplementedScoreServiceServer) AddAndGetScore(ScoreService_AddAndGetScoreServer) error {
 	return status.Errorf(codes.Unimplemented, "method AddAndGetScore not implemented")
 }
-func (UnimplementedScoreServiceServer) mustEmbedUnimplementedScoreServiceServer() {}
 
 // UnsafeScoreServiceServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to ScoreServiceServer will
@@ -307,5 +305,5 @@ var ScoreService_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-	Metadata: "server/proto/score.proto",
+	Metadata: "score.proto",
 }

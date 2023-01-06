@@ -1,0 +1,134 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "score.proto",
+    "version": "version not set"
+  },
+  "tags": [
+    {
+      "name": "ScoreService"
+    }
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/score/add/byUser": {
+      "post": {
+        "summary": "@alias =/score/add/byUser",
+        "operationId": "ScoreService_AddScoreByUserID",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/protoAddScoreByUserIDResp"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/protoAddScoreByUserIDReq"
+            }
+          }
+        ],
+        "tags": [
+          "ScoreService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "protoAddScoreByUserIDReq": {
+      "type": "object",
+      "properties": {
+        "userID": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "scores": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protoScore"
+          }
+        }
+      }
+    },
+    "protoAddScoreByUserIDResp": {
+      "type": "object",
+      "properties": {
+        "userID": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "protoGetScoreListByUserIDResp": {
+      "type": "object",
+      "properties": {
+        "userID": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "scores": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protoScore"
+          }
+        }
+      }
+    },
+    "protoScore": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "value": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "rpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    }
+  }
+}

@@ -2,6 +2,7 @@ syntax = "proto3";
 
 option go_package = "github.com/BingguWang/grpc-go-study/server/proto";
 // github.com/BingguWang/grpc-go-study是go mod跟路径， 生成的文件会放在/scoreService/proto下
+import "google/api/annotations.proto";
 
 package proto;
 
@@ -32,7 +33,12 @@ message GetScoreListByUserIDReq{
 
 service ScoreService{
   // @alias =/score/add/byUser
-  rpc AddScoreByUserID(AddScoreByUserIDReq) returns (AddScoreByUserIDResp) {}  // 这种是一元的RPC通信
+  rpc AddScoreByUserID(AddScoreByUserIDReq) returns (AddScoreByUserIDResp) {
+    option (google.api.http) = {
+      post: "/score/add/byUser"
+      body: "*"
+    };
+  }  // 这种是一元的RPC通信
 
   // @alias =/score/list
   rpc GetStreamScoreListByUser(GetScoreListByUserIDReq) returns (stream GetScoreListByUserIDResp){} // 这种是服务端流式的RPC通信方式
