@@ -63,25 +63,28 @@ func main() {
 	// 可以在你想要取消RPC调用的时候调用cancel方法,那样就会通知道另一方，思考问题：context的状态是如何在客户端服务端进行的同步的？
 	defer cancel()
 
-	// 一元通信
-	if _, err := client.AddScoreByUserID(ctx, &pb.AddScoreByUserIDReq{
-		UserID: 1,
-	}); err != nil { // 如果超时了这里会收到error code = DeadlineExceeded
-		code := status.Code(err)
-		if code == codes.PermissionDenied {
-			fmt.Println(err.Error())
-			errorStatus := status.Convert(err)
-			for _, detail := range errorStatus.Details() {
-				fmt.Println("--", detail)
-				switch t := detail.(type) {
-				case *errdetails.BadRequest_FieldViolation:
-					log.Fatalf("请求错误: %v \n", t)
-				default:
-					log.Fatal(err)
+	// 测试限流器是否生效
+	for i := 0; i < 200; i++ {
+		// 一元通信RPC调用
+		if _, err := client.AddScoreByUserID(ctx, &pb.AddScoreByUserIDReq{
+			UserID: 1,
+		}); err != nil { // 如果超时了这里会收到error code = DeadlineExceeded
+			code := status.Code(err)
+			if code == codes.PermissionDenied {
+				fmt.Println(err.Error())
+				errorStatus := status.Convert(err)
+				for _, detail := range errorStatus.Details() {
+					fmt.Println("--", detail)
+					switch t := detail.(type) {
+					case *errdetails.BadRequest_FieldViolation:
+						log.Printf("请求错误: %v \n", t)
+					default:
+						log.Printf(err.Error())
+					}
 				}
 			}
+			log.Printf(err.Error())
 		}
-		log.Fatal(err)
 	}
 
 	// 服务端流通信

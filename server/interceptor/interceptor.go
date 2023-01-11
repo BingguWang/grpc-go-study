@@ -2,9 +2,13 @@ package interceptor
 
 import (
 	"context"
+	lt "github.com/BingguWang/grpc-go-study/server/limiter"
 	"github.com/BingguWang/grpc-go-study/server/utils"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"log"
+	"time"
 )
 
 /**
@@ -18,6 +22,14 @@ func MyUnaryServerInterceptor(ctx context.Context, req interface{}, info *grpc.U
 	//通过检查传入的参数，获取关于当前RPC的信息
 	// ....前置逻辑
 	log.Println("======= [服务端一元拦截器]", utils.ToJsonString(info))
+	// 新增限流器逻辑
+	log.Println("...........获取限流器...........")
+	limiter := lt.NewTimeRateLimiter()
+	c, _ := context.WithTimeout(ctx, time.Millisecond*200) // 最多只会等待这个时间,可以设置时间,请求就会一直等到有令牌为止
+	if err := limiter.Wait(c); err != nil {
+		log.Println("被限流...")
+		return nil, status.Errorf(codes.ResourceExhausted, "client exceeded rate limit")
+	}
 
 	// 调用handler完成一元RPC的正常执行
 	log.Println("======= [调用服务执行handler]")

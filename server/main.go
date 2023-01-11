@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/BingguWang/grpc-go-study/etcdv3"
 	"github.com/BingguWang/grpc-go-study/server/interceptor"
+	"github.com/BingguWang/grpc-go-study/server/limiter"
 	"github.com/BingguWang/grpc-go-study/server/service"
 	"github.com/BingguWang/grpc-go-study/server/utils"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
@@ -50,7 +51,9 @@ func main() {
 
 	// 单向TLS校验, 不论是哪个客户端，只要有了公钥和服务器名的就都可以调用到服务
 	opts := utils.GetOneSideTlsServerOpts()
-	opts = append(opts, grpc.UnaryInterceptor(interceptor.MyUnaryServerInterceptor), // 设置一个一元拦截器
+	opts = append(opts,
+		grpc.InTapHandle(limiter.RateLimiter),                         // 好像限流没有生效，那就去拦截器里用
+		grpc.UnaryInterceptor(interceptor.MyUnaryServerInterceptor),   // 设置一个一元拦截器
 		grpc.StreamInterceptor(interceptor.MyStreamServerInterceptor), // 设置一个流拦截器
 	)
 	grpcServer := grpc.NewServer(
