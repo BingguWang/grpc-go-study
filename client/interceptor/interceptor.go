@@ -2,6 +2,7 @@ package interceptor
 
 import (
 	"context"
+	"github.com/BingguWang/grpc-go-study/client/cache"
 	"github.com/BingguWang/grpc-go-study/server/utils"
 	"google.golang.org/grpc"
 	"log"
@@ -21,6 +22,8 @@ func MyUnaryClientInterceptor(ctx context.Context, method string, req, reply int
 	// 调用rpc， invoker方法会执行send和recv操作，
 	// 执行的其实就是ClientConn的方法(cc *ClientConn) Invoke(ctx context.Context, method string, args, reply interface{}, opts ...CallOption)
 	log.Println("======= 调用RPC ")
+	counterCache := cache.NewClientCounterCache()
+	counterCache.IncrementCallTimesKey(1)
 	if err := invoker(ctx, method, req, reply, cc, opts...); err != nil {
 		return err
 	}
@@ -40,6 +43,8 @@ func MyStreamClientInterceptor(ctx context.Context, desc *grpc.StreamDesc, cc *g
 	// 请求和响应是Streamer 调用 SendMsg 和 RecvMsg 这两个方法获取的。
 
 	log.Println("======= 调用RPC ")
+	counterCache := cache.NewClientCounterCache()
+	counterCache.IncrementCallTimesKey(1)
 	stream, err := streamer(ctx, desc, cc, method)
 	// 我们其实可以对获取到stream进行自定义封装
 	return stream, err

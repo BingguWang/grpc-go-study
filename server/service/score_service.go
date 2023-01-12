@@ -35,7 +35,6 @@ type server struct {
 func (*server) AddScoreByUserID(ctx context.Context, in *pb.AddScoreByUserIDReq) (*pb.AddScoreByUserIDResp, error) {
 	log.Println("call AddScoreByUserID...")
 	//time.Sleep(5*time.Second) // 延时，测试客户调用设置的截止时间是否生效, result:生效
-
 	if in.UserID == 1 {
 		errStatus := status.New(codes.PermissionDenied, "权限拒绝") // 利用grpc的状态包自定义错误
 		details, err := errStatus.WithDetails(

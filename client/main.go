@@ -4,11 +4,12 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	cache2 "github.com/BingguWang/grpc-go-study/client/cache"
 	"github.com/BingguWang/grpc-go-study/client/interceptor"
 	"github.com/BingguWang/grpc-go-study/etcdv3"
 	pb "github.com/BingguWang/grpc-go-study/server/proto"
 	"github.com/BingguWang/grpc-go-study/server/utils"
-	"github.com/patrickmn/go-cache"
+	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -29,23 +30,6 @@ var (
  有了注册中心后，客户端只要知道服务名，不需要知道服务地址，解析服务名的工作也交给注册中心，客户端不再需要知道服务名-地址的映射关系
 客户把服务名给注册中心，由注册中心去解析出服务地址
 */
-var clientCounterCache *cache.Cache
-
-const (
-	succeedKey = "succeed"
-	failedKey  = "failed"
-	limitedKey = "limited"
-)
-
-func init() {
-	// 初始化一个请求计数器
-	if clientCounterCache == nil {
-		clientCounterCache = cache.New(cache.NoExpiration, cache.DefaultExpiration)
-	}
-	clientCounterCache.Set(succeedKey, 0, cache.NoExpiration)
-	clientCounterCache.Set(failedKey, 0, cache.NoExpiration)
-	clientCounterCache.Set(limitedKey, 0, cache.NoExpiration)
-}
 func main() {
 	flag.Parse()
 	// Set up a connection to the server.
@@ -57,6 +41,15 @@ func main() {
 	resolver.Register(r)
 
 	opts := utils.GetOneSideTlsClientOpts()
+
+	// 重试策略配置
+	retryOpt := []grpc_retry.CallOption{
+		grpc_retry.WithMax(3),                                                       // 最多重试3次
+		grpc_retry.WithPerRetryTimeout(3 * time.Second),                             // 每次重试3秒超时
+		grpc_retry.WithBackoff(grpc_retry.BackoffLinear(100 * time.Millisecond)),    // 线性退避重试，首次重试间隔100毫秒
+		grpc_retry.WithCodes(codes.NotFound, codes.Aborted, codes.DeadlineExceeded), // 仅当grpc响应状态码是NotFound或Aborted时才重试
+	}
+
 	conn, err := grpc.Dial(
 		//*addr,
 		r.Scheme()+"://authority/"+*svc, // etcd的命名解析，格式要写对 scheme名称://authority/servicename
@@ -64,8 +57,10 @@ func main() {
 		grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [{"round_robin":{}}]}`), // 设置负载均衡策略
 
 		//grpc.WithTransportCredentials(insecure.NewCredentials()), // 没有认证
-		grpc.WithUnaryInterceptor(interceptor.MyUnaryClientInterceptor),   // 设置客户端一元拦截器
-		grpc.WithStreamInterceptor(interceptor.MyStreamClientInterceptor), // 设置客户端流拦截器
+		grpc.WithUnaryInterceptor(grpc_retry.UnaryClientInterceptor(retryOpt...)),   // 重试拦截器
+		grpc.WithStreamInterceptor(grpc_retry.StreamClientInterceptor(retryOpt...)), // 重试拦截器
+		grpc.WithUnaryInterceptor(interceptor.MyUnaryClientInterceptor),             // 设置客户端一元拦截器
+		grpc.WithStreamInterceptor(interceptor.MyStreamClientInterceptor),           // 设置客户端流拦截器
 		opts[0],
 	)
 	if err != nil {
@@ -80,8 +75,9 @@ func main() {
 	// 可以在你想要取消RPC调用的时候调用cancel方法,那样就会通知道另一方，思考问题：context的状态是如何在客户端服务端进行的同步的？
 	defer cancel()
 
+	counterCache := cache2.NewClientCounterCache()
 	// 测试限流器是否生效
-	for i := 0; i < 200; i++ {
+	for i := 0; i < 100; i++ {
 		// 一元通信RPC调用
 		if _, err := client.AddScoreByUserID(ctx, &pb.AddScoreByUserIDReq{
 			UserID: 1,
@@ -101,14 +97,14 @@ func main() {
 					}
 				}
 			case codes.ResourceExhausted:
-				clientCounterCache.Increment(limitedKey, 1)
+				counterCache.IncrementLimitedKey(1)
 			default:
 				log.Printf(err.Error())
 			}
-			clientCounterCache.Increment(failedKey, 1)
+			counterCache.IncrementFailed(1)
 			continue
 		}
-		clientCounterCache.Increment(succeedKey, 1)
+		counterCache.IncrementSucceed(1)
 	}
 
 	// 服务端流通信
@@ -122,9 +118,6 @@ func main() {
 	// 双向流通信
 	//service.CallStreamBidirectional(ctx, client)
 
-	sucee, _ := clientCounterCache.Get(succeedKey)
-	fail, _ := clientCounterCache.Get(failedKey)
-	limited, _ := clientCounterCache.Get(limitedKey)
-	fmt.Printf("call succeed: %v, \n call failed: %v, \n call limited: %v", sucee, fail, limited)
+	counterCache.CachePrint()
 
 }
