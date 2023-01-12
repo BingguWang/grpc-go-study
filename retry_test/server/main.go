@@ -28,6 +28,7 @@ func (s *failingServer) AddScoreByUserID(ctx context.Context, req *pb.AddScoreBy
 	s.mu.Unlock()
 	if s.reqCounter == 1 {
 		log.Printf("第 %v 次 请求失败...failed \n", s.reqCounter)
+		// 一个标准的grpc错误至少应该这样写，有code码，和message
 		return nil, status.Errorf(codes.Unavailable, "call AddScoreByUserID failed")
 	}
 	log.Printf("第 %v 次 请求成功...succeed \n", s.reqCounter)

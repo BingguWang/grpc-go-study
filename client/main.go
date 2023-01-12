@@ -83,6 +83,7 @@ func main() {
 			UserID: 1,
 		}); err != nil { // 如果超时了这里会收到error code = DeadlineExceeded
 			code := status.Code(err)
+			//errStatus, ok := status.FromError(err)
 			switch code {
 			case codes.PermissionDenied:
 				fmt.Println(err.Error())

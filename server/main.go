@@ -55,6 +55,7 @@ func main() {
 		grpc.InTapHandle(limiter.RateLimiter),                         // 好像限流没有生效，那就去拦截器里用
 		grpc.UnaryInterceptor(interceptor.MyUnaryServerInterceptor),   // 设置一个一元拦截器
 		grpc.StreamInterceptor(interceptor.MyStreamServerInterceptor), // 设置一个流拦截器
+		grpc.MaxRecvMsgSize(2<<10),                                    // 设置服务器端可接收的最大请求体长度为2KB
 	)
 	grpcServer := grpc.NewServer(
 		opts...,
