@@ -6,16 +6,16 @@ import (
 	"fmt"
 	"github.com/BingguWang/grpc-go-study/client/interceptor"
 	"github.com/BingguWang/grpc-go-study/etcdv3"
+	pb "github.com/BingguWang/grpc-go-study/server/proto"
 	"github.com/BingguWang/grpc-go-study/server/utils"
+	"github.com/patrickmn/go-cache"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/status"
 	"log"
 	"time"
-
-	pb "github.com/BingguWang/grpc-go-study/server/proto"
-	"google.golang.org/grpc"
 )
 
 var (
@@ -29,6 +29,23 @@ var (
  有了注册中心后，客户端只要知道服务名，不需要知道服务地址，解析服务名的工作也交给注册中心，客户端不再需要知道服务名-地址的映射关系
 客户把服务名给注册中心，由注册中心去解析出服务地址
 */
+var clientCounterCache *cache.Cache
+
+const (
+	succeedKey = "succeed"
+	failedKey  = "failed"
+	limitedKey = "limited"
+)
+
+func init() {
+	// 初始化一个请求计数器
+	if clientCounterCache == nil {
+		clientCounterCache = cache.New(cache.NoExpiration, cache.DefaultExpiration)
+	}
+	clientCounterCache.Set(succeedKey, 0, cache.NoExpiration)
+	clientCounterCache.Set(failedKey, 0, cache.NoExpiration)
+	clientCounterCache.Set(limitedKey, 0, cache.NoExpiration)
+}
 func main() {
 	flag.Parse()
 	// Set up a connection to the server.
@@ -70,7 +87,8 @@ func main() {
 			UserID: 1,
 		}); err != nil { // 如果超时了这里会收到error code = DeadlineExceeded
 			code := status.Code(err)
-			if code == codes.PermissionDenied {
+			switch code {
+			case codes.PermissionDenied:
 				fmt.Println(err.Error())
 				errorStatus := status.Convert(err)
 				for _, detail := range errorStatus.Details() {
@@ -82,9 +100,15 @@ func main() {
 						log.Printf(err.Error())
 					}
 				}
+			case codes.ResourceExhausted:
+				clientCounterCache.Increment(limitedKey, 1)
+			default:
+				log.Printf(err.Error())
 			}
-			log.Printf(err.Error())
+			clientCounterCache.Increment(failedKey, 1)
+			continue
 		}
+		clientCounterCache.Increment(succeedKey, 1)
 	}
 
 	// 服务端流通信
@@ -97,4 +121,10 @@ func main() {
 
 	// 双向流通信
 	//service.CallStreamBidirectional(ctx, client)
+
+	sucee, _ := clientCounterCache.Get(succeedKey)
+	fail, _ := clientCounterCache.Get(failedKey)
+	limited, _ := clientCounterCache.Get(limitedKey)
+	fmt.Printf("call succeed: %v, \n call failed: %v, \n call limited: %v", sucee, fail, limited)
+
 }
