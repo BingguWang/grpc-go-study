@@ -141,7 +141,10 @@ func grpcHandlerFunc(gs *grpc.Server, otherHandler http.Handler) http.Handler {
 	//	}
 	//})
 
-	// 使用官方的h2库,用这个库，网关服务用证书和不用证书都可以，就是同时支持http2和http
+	/**
+	  使用官方的h2库,用这个库，网关服务用证书和不用证书都可以，就是同时支持http2和http
+	  当grpc服务是用网关来启动时，如果客户想用无证书调用本grpc服务，就不能用http2，否则会出现 grpc error reading server preface: http2: frame too large
+	*/
 	return h2c.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 拦截了所有 h2c 流量，然后根据不同的请求流量类型将其劫持并重定向到相应的 Hander 中去处理。
 		if r.ProtoMajor == 2 && strings.Contains(r.Header.Get("Content-Type"), "application/grpc") {
