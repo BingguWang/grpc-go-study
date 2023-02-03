@@ -13,6 +13,7 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/resolver"
 	"io/ioutil"
@@ -100,11 +101,11 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("/", gwmux)
 	/**
-	处理http请求的时候他其实是分为  2段  的
-	通信的整个方式其实是：
-		http请求发送到addr --> 网关 --> 转http请求为grpc请求 --> 命名解析endpoint根据负载均衡选择一个grpcServer --> C grpcServer
-																								 B grpcServer
-																								 A grpcServer
+	  处理http请求的时候他其实是分为  2段  的
+	  通信的整个方式其实是：
+	  	http请求发送到addr --> 网关 --> 转http请求为grpc请求 --> 命名解析endpoint根据负载均衡选择一个grpcServer --> C grpcServer
+	  																							 B grpcServer
+	  																							 A grpcServer
 	*/
 	srv := &http.Server{
 		Addr:      addr, // 注意！！！这里的addr是http请求的地址，其实和net.listen的lis的端口是同一个，也就是http请求发送的地址
@@ -129,15 +130,31 @@ func grpcHandlerFunc(gs *grpc.Server, otherHandler http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			gs.ServeHTTP(w, r)
 		})
-	} // TODO 看下http包的使用
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 根据请求头判断是否是grpc调用
-		if r.ProtoMajor == 2 && strings.Contains(r.Header.Get("Content-Type"), "application/grpc") { // 请求基于HTTP/2且请求的是grpc服务
+	}
+
+	//return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	//	// 根据请求头判断是否是grpc调用
+	//	if r.ProtoMajor == 2 && strings.Contains(r.Header.Get("Content-Type"), "application/grpc") { // 请求基于HTTP/2且请求的是grpc服务
+	//		gs.ServeHTTP(w, r)
+	//	} else { // 请求的是http服务
+	//		otherHandler.ServeHTTP(w, r)
+	//	}
+	//})
+
+	// 使用官方的h2库,用这个库，网关服务用证书和不用证书都可以，就是同时支持http2和http
+	return h2c.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 拦截了所有 h2c 流量，然后根据不同的请求流量类型将其劫持并重定向到相应的 Hander 中去处理。
+		if r.ProtoMajor == 2 && strings.Contains(r.Header.Get("Content-Type"), "application/grpc") {
 			gs.ServeHTTP(w, r)
-		} else { // 请求的是http服务
+		} else {
 			otherHandler.ServeHTTP(w, r)
 		}
-	})
+	}), &http2.Server{})
+
+	/**
+	  curl -k --insecure -d '{"userMobile":"18956457845"}' https://localhost:50051/user/loginOrRegister
+
+	*/
 }
 
 func getTLSConfig() *tls.Config {
